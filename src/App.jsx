@@ -7,7 +7,7 @@ import { Shield, Target, Trophy, AlertTriangle, RefreshCw, Languages, Flame, Spa
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const WIN_SCORE = 1000;
-const UPGRADE_SCORE = 200; 
+const UPGRADE_SCORE = 60; // 升级阈值
 const ENEMY_POINTS = 20;
 
 const TEXTS = {
@@ -22,14 +22,14 @@ const TEXTS = {
     target: "目标量",
     ammo: "符文能量",
     wave: "波动等级",
-    upgrade: "奥术升阶：能量上限提升！",
+    upgrade: "奥术升阶：双重射击 & 磁力追踪 & 奥术护盾开启！",
     difficulty: "难度选择",
     diff_easy: "学徒",
     diff_normal: "大师",
     diff_hard: "至尊",
     winDesc: "奇迹！你融合了禁忌科技与上古奥术，成功击退了虚空大军。",
     loseDesc: "混沌吞噬了一切。所有的奥术塔已熄灭，城市化作尘埃。",
-    guide: "利用符文导弹拦截混沌之箭。魔法阵的连锁引爆将净化虚空！",
+    guide: "利用符文导弹拦截混沌之箭。奥术护盾将为你抵挡致命一击！",
     footer: "由 React + Tailwind CSS 驱动 | 部署于 Vercel"
   },
   en: {
@@ -43,14 +43,14 @@ const TEXTS = {
     target: "GOAL",
     ammo: "RUNE ENERGY",
     wave: "WAVE LEVEL",
-    upgrade: "ARCANE ASCENSION: AMMO UPGRADED!",
+    upgrade: "ARCANE ASCENSION: DOUBLE SHOT & SHIELD ACTIVE!",
     difficulty: "DIFFICULTY",
     diff_easy: "Apprentice",
     diff_normal: "Master",
     diff_hard: "Grandmaster",
     winDesc: "Incredible! You merged forbidden tech with ancient arcane to repel the Void.",
     loseDesc: "Chaos has consumed all. Arcane Spires dark. Cities turned to dust.",
-    guide: "Intercept Chaos Arrows with Rune Missiles. Alchemical explosions will purge the Void!",
+    guide: "Intercept Chaos Arrows with Rune Missiles. Arcane Shields will protect your cities!",
     footer: "Powered by React + Tailwind | Deployed on Vercel"
   }
 };
@@ -101,14 +101,14 @@ const App = () => {
       }
 
       this.silos = [
-        { id: 0, x: 80, y: 560, ammo: Math.floor(40 * ammoMult), maxAmmo: Math.floor(40 * ammoMult), active: true, width: 60, height: 60, crystalRot: 0 },
-        { id: 1, x: 400, y: 560, ammo: Math.floor(80 * ammoMult), maxAmmo: Math.floor(80 * ammoMult), active: true, width: 80, height: 80, crystalRot: 0 },
-        { id: 2, x: 720, y: 560, ammo: Math.floor(40 * ammoMult), maxAmmo: Math.floor(40 * ammoMult), active: true, width: 60, height: 60, crystalRot: 0 },
+        { id: 0, x: 80, y: 560, ammo: Math.floor(40 * ammoMult), maxAmmo: Math.floor(40 * ammoMult), active: true, width: 60, height: 60, crystalRot: 0, shield: 0 },
+        { id: 1, x: 400, y: 560, ammo: Math.floor(80 * ammoMult), maxAmmo: Math.floor(80 * ammoMult), active: true, width: 80, height: 80, crystalRot: 0, shield: 0 },
+        { id: 2, x: 720, y: 560, ammo: Math.floor(40 * ammoMult), maxAmmo: Math.floor(40 * ammoMult), active: true, width: 60, height: 60, crystalRot: 0, shield: 0 },
       ];
 
       this.cities = [
-        { x: 180, y: 580, active: true }, { x: 260, y: 580, active: true }, { x: 340, y: 580, active: true },
-        { x: 460, y: 580, active: true }, { x: 540, y: 580, active: true }, { x: 620, y: 580, active: true },
+        { x: 180, y: 580, active: true, shield: 0 }, { x: 260, y: 580, active: true, shield: 0 }, { x: 340, y: 580, active: true, shield: 0 },
+        { x: 460, y: 580, active: true, shield: 0 }, { x: 540, y: 580, active: true, shield: 0 }, { x: 620, y: 580, active: true, shield: 0 },
       ];
 
       this.lastEnemySpawn = 0;
@@ -158,19 +158,46 @@ const App = () => {
       });
 
       if (bestSilo) {
+        if (this.upgraded) {
+          let closestEnemy = null;
+          let minEnemyDist = 80; 
+          this.enemies.forEach(e => {
+            const dist = Math.hypot(e.x - targetX, e.y - targetY);
+            if (dist < minEnemyDist) { minEnemyDist = dist; closestEnemy = e; }
+          });
+          if (closestEnemy) {
+            targetX = closestEnemy.x + closestEnemy.vx * 12;
+            targetY = closestEnemy.y + closestEnemy.vy * 12;
+          }
+        }
+
         bestSilo.ammo--;
-        const speed = 13;
+        const speed = 14; 
         const angle = Math.atan2(targetY - bestSilo.y, targetX - bestSilo.x);
-        this.missiles.push({
-          x: bestSilo.x, y: bestSilo.y - 40, targetX, targetY,
-          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-          angle: angle
-        });
+        
+        if (this.upgraded && bestSilo.id === 1) {
+          this.missiles.push({
+            x: bestSilo.x - 10, y: bestSilo.y - 40, targetX: targetX - 15, targetY,
+            vx: Math.cos(angle - 0.04) * speed, vy: Math.sin(angle - 0.04) * speed,
+            angle: angle - 0.04
+          });
+          this.missiles.push({
+            x: bestSilo.x + 10, y: bestSilo.y - 40, targetX: targetX + 15, targetY,
+            vx: Math.cos(angle + 0.04) * speed, vy: Math.sin(angle + 0.04) * speed,
+            angle: angle + 0.04
+          });
+        } else {
+          this.missiles.push({
+            x: bestSilo.x, y: bestSilo.y - 40, targetX, targetY,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            angle: angle
+          });
+        }
       }
     }
 
     createExplosion(x, y, radius = 55, color = '#4cc9f0') {
-      const finalRadius = this.upgraded ? radius * 1.35 : radius;
+      const finalRadius = this.upgraded ? radius * 1.4 : radius;
       this.explosions.push({
         x, y, r: 1, maxR: finalRadius, expanding: true, color, 
         rot: Math.random() * Math.PI,
@@ -193,6 +220,7 @@ const App = () => {
         if(p.y > CANVAS_HEIGHT) p.y = 0;
       });
 
+      // --- 核心升级：增加护盾初始化 ---
       if (this.score >= UPGRADE_SCORE && !this.upgraded) {
         this.upgraded = true;
         this.onUpgrade(true);
@@ -201,7 +229,11 @@ const App = () => {
           if (s.active) {
             s.maxAmmo = Math.floor(s.maxAmmo * 1.5);
             s.ammo = s.maxAmmo; 
+            s.shield = 1; // 炮台获得护盾
           }
+        });
+        this.cities.forEach(c => {
+          if (c.active) c.shield = 1; // 城市获得护盾
         });
         for(let i=0; i<60; i++) {
           this.particles.push({
@@ -235,7 +267,7 @@ const App = () => {
 
       this.explosions.forEach((ex, index) => {
         if (ex.expanding) {
-          ex.r += 3.0;
+          ex.r += 3.2; 
           if (ex.r >= ex.maxR) ex.expanding = false;
         } else {
           ex.r -= 1.6;
@@ -263,13 +295,47 @@ const App = () => {
 
     checkImpact(x, y) {
       const impactRadius = 55;
+      // 检查城市：先消耗护盾
       this.cities.forEach(city => {
-        if (city.active && Math.abs(city.x - x) < impactRadius) city.active = false;
+        if (city.active && Math.abs(city.x - x) < impactRadius) {
+          if (city.shield > 0) {
+            city.shield--;
+            this.createExplosion(city.x, city.y, 80, '#fbbf24'); // 护盾受击特效
+          } else {
+            city.active = false;
+          }
+        }
       });
+      // 检查炮台：先消耗护盾
       this.silos.forEach(silo => {
-        if (silo.active && Math.abs(silo.x - x) < impactRadius) silo.active = false;
+        if (silo.active && Math.abs(silo.x - x) < impactRadius) {
+          if (silo.shield > 0) {
+            silo.shield--;
+            this.createExplosion(silo.x, silo.y, 100, '#fbbf24'); // 护盾受击特效
+          } else {
+            silo.active = false;
+          }
+        }
       });
       if (this.silos.every(s => !s.active)) this.onGameStateChange('LOST');
+    }
+
+    drawShield(x, y, r) {
+      const ctx = this.ctx;
+      const pulse = Math.sin(Date.now() / 300) * 0.1 + 0.9;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, r * pulse, Math.PI, 0);
+      const grad = ctx.createRadialGradient(x, y, r * 0.5, x, y, r);
+      grad.addColorStop(0, 'rgba(251, 191, 36, 0)');
+      grad.addColorStop(0.8, 'rgba(251, 191, 36, 0.2)');
+      grad.addColorStop(1, 'rgba(251, 191, 36, 0.5)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
     }
 
     drawMissileEntity(x, y, angle, type, data) {
@@ -277,7 +343,6 @@ const App = () => {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
-
       if (type === 'enemy') {
         const scale = 2.0;
         const flicker = Math.sin(data.chaosEnergy * 2.5) * 6;
@@ -294,13 +359,14 @@ const App = () => {
         ctx.fillStyle = '#bd00ff'; ctx.fillRect(-2 * scale, -1 * scale, 4 * scale, 2 * scale);
       } else {
         const scale = this.upgraded ? 3.0 : 2.4; 
-        ctx.shadowBlur = 22; ctx.shadowColor = this.upgraded ? '#ffd700' : '#00f2ff';
-        ctx.fillStyle = this.upgraded ? 'rgba(255, 215, 0, 0.7)' : 'rgba(0, 242, 255, 0.7)';
+        if (this.upgraded) { ctx.shadowBlur = 30; ctx.shadowColor = '#fbbf24'; }
+        else { ctx.shadowBlur = 22; ctx.shadowColor = '#00f2ff'; }
+        ctx.fillStyle = this.upgraded ? 'rgba(251, 191, 36, 0.7)' : 'rgba(0, 242, 255, 0.7)';
         ctx.beginPath(); ctx.arc(-10, 0, 7, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = this.upgraded ? '#fff' : '#f0f9ff';
         ctx.beginPath(); ctx.moveTo(-8 * scale, -2 * scale); ctx.lineTo(8 * scale, -2 * scale); ctx.lineTo(14 * scale, 0); ctx.lineTo(8 * scale, 2 * scale); ctx.lineTo(-8 * scale, 2 * scale); ctx.closePath(); ctx.fill();
         const runeGlow = Math.sin(Date.now() / 90) * 0.5 + 0.5;
-        ctx.fillStyle = this.upgraded ? `rgba(255, 215, 0, ${runeGlow})` : `rgba(0, 242, 255, ${runeGlow})`;
+        ctx.fillStyle = this.upgraded ? `rgba(251, 191, 36, ${runeGlow})` : `rgba(0, 242, 255, ${runeGlow})`;
         ctx.fillRect(-2 * scale, -1.2 * scale, 4 * scale, 2.4 * scale);
         ctx.shadowBlur = 0;
       }
@@ -346,13 +412,13 @@ const App = () => {
       });
       ctx.globalAlpha = 1.0;
 
-      // 绘制环境网格
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.03)';
       for(let i=0; i<CANVAS_WIDTH; i+=50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke(); }
       for(let j=0; j<CANVAS_HEIGHT; j+=50) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(CANVAS_WIDTH, j); ctx.stroke(); }
 
       this.cities.forEach(city => {
         if (!city.active) return;
+        if (city.shield > 0) this.drawShield(city.x, city.y, 50);
         ctx.save();
         ctx.shadowBlur = 18; ctx.shadowColor = '#38bdf8';
         ctx.fillStyle = '#38bdf8'; ctx.fillRect(city.x - 12, city.y - 25, 24, 25);
@@ -369,6 +435,7 @@ const App = () => {
           return;
         }
 
+        if (silo.shield > 0) this.drawShield(cx, cy, 70);
         if (this.upgraded) {
           this.drawMagicCircle(cx, cy, 55, '#ffd700', Date.now()/850, 0, true);
         }
@@ -465,7 +532,6 @@ const App = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#020206] text-slate-100 p-4 font-sans select-none selection:bg-sky-500/30">
       
-      {/* 生产环境 HUD */}
       <div className="w-full max-w-[800px] flex items-center justify-between mb-5 bg-slate-900/40 p-5 rounded-[2rem] border border-sky-900/40 backdrop-blur-2xl shadow-2xl">
         <div className="flex flex-col">
           <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-white to-sky-400 tracking-tighter uppercase italic flex items-center gap-3">
@@ -492,7 +558,6 @@ const App = () => {
         </div>
       </div>
 
-      {/* 画布核心容器 */}
       <div className="relative w-full max-w-[800px] aspect-[4/3] bg-black rounded-[3.5rem] overflow-hidden shadow-[0_0_100px_rgba(14,165,233,0.15)] border-[6px] border-slate-900/80">
         <canvas
           ref={canvasRef}
@@ -591,7 +656,6 @@ const App = () => {
         )}
       </div>
 
-      {/* 生产环境页脚 */}
       <div className="mt-10 flex flex-col items-center gap-6 opacity-40 hover:opacity-100 transition-opacity">
         <div className="flex items-center gap-8">
            <a href="https://github.com" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] hover:text-sky-400 transition-colors">
